@@ -30,6 +30,14 @@
       .cursor-ring:before{content:"";position:absolute;inset:8px;border:1px solid rgba(114,169,255,.24);border-radius:50%}
       .cursor-aura.visible,.cursor-ring.visible{opacity:1}.cursor-aura.hovering{width:350px;height:350px}.cursor-ring.hovering{width:132px;height:132px;border-color:rgba(121,255,238,.66);box-shadow:0 0 25px rgba(104,238,224,.28),inset 0 0 20px rgba(104,238,224,.10)}
     }
+    @media (pointer:coarse) and (prefers-reduced-motion:no-preference){
+      .cursor-aura,.cursor-ring{position:fixed;left:0;top:0;z-index:30;pointer-events:none;opacity:0;transform:translate3d(var(--mx,50vw),var(--my,40vh),0) translate(-50%,-50%);will-change:transform,opacity;transition:opacity .28s ease,mix-blend-mode .2s;mix-blend-mode:screen}
+      .cursor-aura{width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(219,242,255,.35),rgba(173,145,236,.16) 42%,rgba(110,87,157,.08) 58%,transparent 74%);filter:blur(5px)}
+      .cursor-ring{width:76px;height:76px;border:1px solid rgba(231,218,255,.76);border-radius:50%;box-shadow:0 0 25px rgba(206,184,255,.34),inset 0 0 18px rgba(255,255,255,.13)}
+      .cursor-ring:before{content:"";position:absolute;inset:7px;border:1px solid rgba(208,184,255,.52);border-radius:50%}
+      .cursor-aura.visible,.cursor-ring.visible{opacity:1}.cursor-aura.hovering{width:260px;height:260px}.cursor-ring.hovering{width:96px;height:96px;border-color:#fff;box-shadow:0 0 30px rgba(206,184,255,.55),inset 0 0 20px rgba(255,255,255,.19)}
+      .flow-canvas{opacity:.7}
+    }
     @media (prefers-reduced-motion:no-preference){
       .orbit{animation:orbit-aura 30s linear infinite}.orbit.two{animation:orbit-aura-reverse 38s linear infinite}.core{animation:core-breathe 4.5s ease-in-out infinite}
       .panel,.focus,.repo,.contrib,.stat,.principle{transition:transform .24s ease,border-color .24s ease,box-shadow .24s ease}
@@ -331,10 +339,23 @@
       };
       window.addEventListener("pointermove",event=>{
         if(document.body.classList.contains("reduce-motion"))return;
-        if (event.pointerType==="touch") return;
         flowTrail.push({x:event.clientX,y:event.clientY,time:performance.now()});
         if (flowTrail.length>26) flowTrail.shift();
         if (!flowFrame) flowFrame=requestAnimationFrame(drawFlow);
+      },{passive:true});
+      window.addEventListener("touchstart",event=>{
+        if(document.body.classList.contains("reduce-motion"))return;
+        const touch=event.changedTouches[0];
+        if(touch)flowTrail.push({x:touch.clientX,y:touch.clientY,time:performance.now()});
+        if(flowTrail.length>26)flowTrail.shift();
+        if(!flowFrame)flowFrame=requestAnimationFrame(drawFlow);
+      },{passive:true});
+      window.addEventListener("touchmove",event=>{
+        if(document.body.classList.contains("reduce-motion"))return;
+        const touch=event.touches[0];
+        if(touch)flowTrail.push({x:touch.clientX,y:touch.clientY,time:performance.now()});
+        if(flowTrail.length>26)flowTrail.shift();
+        if(!flowFrame)flowFrame=requestAnimationFrame(drawFlow);
       },{passive:true});
       const navPill=document.querySelector(".nav");
       let navRippleTimer;
@@ -376,6 +397,33 @@
           aura.classList.remove("visible", "hovering");
           ring.classList.remove("visible", "hovering");
         });
+      }
+      if (window.matchMedia("(pointer: coarse)").matches) {
+        const root=document.documentElement;
+        const aura=document.querySelector(".cursor-aura");
+        const ring=document.querySelector(".cursor-ring");
+        let touchHideTimer=0;
+        const followTouch=touch=>{
+          if(!touch||document.body.classList.contains("reduce-motion"))return;
+          root.style.setProperty("--mx",`${touch.clientX}px`);
+          root.style.setProperty("--my",`${touch.clientY}px`);
+          const target=document.elementFromPoint(touch.clientX,touch.clientY);
+          const touching=Boolean(target?.closest("a,button,input,textarea"));
+          aura.classList.add("visible");ring.classList.add("visible");
+          aura.classList.toggle("hovering",touching);ring.classList.toggle("hovering",touching);
+          window.clearTimeout(touchHideTimer);
+        };
+        document.addEventListener("touchstart",event=>followTouch(event.changedTouches[0]),{passive:true});
+        document.addEventListener("touchmove",event=>followTouch(event.touches[0]),{passive:true});
+        document.addEventListener("touchend",()=>{
+          touchHideTimer=window.setTimeout(()=>{
+            aura.classList.remove("visible","hovering");ring.classList.remove("visible","hovering");
+          },650);
+        },{passive:true});
+        document.addEventListener("touchcancel",()=>{
+          window.clearTimeout(touchHideTimer);
+          aura.classList.remove("visible","hovering");ring.classList.remove("visible","hovering");
+        },{passive:true});
       }
       if ("IntersectionObserver" in window) {
         document.body.classList.add("reveal-enabled");
